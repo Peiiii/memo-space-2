@@ -43,21 +43,41 @@
         inherits: false;
       }
       
-      @keyframes beam-rotate {
+      /* 
+         Fish Swimming Rhythm:
+         The keyframes simulate a "Stroke -> Glide -> Stroke" motion.
+         It moves fast (Stroke), then slows down (Glide), then moves again.
+      */
+      @keyframes beam-swim {
         0% {
           --beam-angle: 0deg;
           opacity: 0;
         }
-        8% {
-          opacity: 1;
+        5% {
+          opacity: 1; /* Fade in gently */
         }
-        50% {
+        
+        /* 1st Stroke: Quick acceleration */
+        20% {
+          --beam-angle: 120deg; 
+        }
+        
+        /* 1st Glide: Slow drift due to inertia */
+        45% {
+          --beam-angle: 160deg;
+        }
+        
+        /* 2nd Stroke: Long powerful movement */
+        65% {
+          --beam-angle: 300deg;
+        }
+        
+        /* 2nd Glide: Slowing down to a stop */
+        90% {
           --beam-angle: 360deg;
           opacity: 1;
         }
-        55% {
-          opacity: 0;
-        }
+        
         100% {
           --beam-angle: 360deg;
           opacity: 0;
@@ -65,7 +85,8 @@
       }
 
       .animate-border-beam {
-        animation: beam-rotate 6s ease-in-out infinite;
+        /* Increased duration to 14s for a slow, elegant feel */
+        animation: beam-swim 14s cubic-bezier(0.4, 0, 0.2, 1) infinite;
       }
     </style>
   <script type="importmap">

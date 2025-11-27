@@ -113,11 +113,14 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ memory, onClose, onUpd
              {/* 3. Subtle Reflection Slash */}
              <div className="absolute -inset-[100%] top-[-50%] left-[-50%] w-[200%] h-[200%] bg-gradient-to-br from-transparent via-white/5 to-transparent rotate-45 pointer-events-none" />
 
-             {/* 4. NEW: Moving Border Beam (Intermittent) */}
+             {/* 4. NEW: Moving Border Beam (Swimming Fish Effect) */}
              <div 
                className="absolute inset-[-1.5px] rounded-[24px] pointer-events-none z-10 animate-border-beam"
                style={{
-                 background: 'conic-gradient(from var(--beam-angle) at 50% 50%, transparent 0%, transparent 40%, rgba(199, 210, 254, 0.2) 45%, #ffffff 50%, rgba(199, 210, 254, 0.2) 55%, transparent 60%, transparent 100%)',
+                 // Gradient designed to look like a comet/fish: 
+                 // It starts transparent, fades into a soft blue tail, then a white bright head at 100%.
+                 // Since conic gradients fill clockwise, 100% is the leading edge of the animation.
+                 background: 'conic-gradient(from var(--beam-angle) at 50% 50%, transparent 0%, transparent 60%, rgba(199, 210, 254, 0.05) 75%, rgba(199, 210, 254, 0.4) 90%, #ffffff 100%)',
                  mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
                  WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
                  maskComposite: 'exclude',
