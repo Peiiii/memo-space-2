@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Memory Space</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background-color: #0f172a; }
+      @keyframes drift {
+        0% { transform: translate(0, 0) rotate(0deg); }
+        25% { transform: translate(10px, -15px) rotate(1deg); }
+        50% { transform: translate(-5px, 10px) rotate(-1deg); }
+        75% { transform: translate(-15px, -5px) rotate(0.5deg); }
+        100% { transform: translate(0, 0) rotate(0deg); }
+      }
+      .animate-drift {
+        animation: drift 20s ease-in-out infinite;
+      }
+      /* Custom scrollbar hide */
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      /* 3D Utilities */
+      .preserve-3d {
+        transform-style: preserve-3d;
+      }
+      .backface-hidden {
+        backface-visibility: hidden;
+      }
+      .text-shadow-sm {
+        text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+      }
+
+      /* Border Beam Animation Support */
+      @property --beam-angle {
+        syntax: '<angle>';
+        initial-value: 0deg;
+        inherits: false;
+      }
+      
+      @keyframes beam-rotate {
+        0% {
+          --beam-angle: 0deg;
+          opacity: 0;
+        }
+        8% {
+          opacity: 1;
+        }
+        50% {
+          --beam-angle: 360deg;
+          opacity: 1;
+        }
+        55% {
+          opacity: 0;
+        }
+        100% {
+          --beam-angle: 360deg;
+          opacity: 0;
+        }
+      }
+
+      .animate-border-beam {
+        animation: beam-rotate 6s ease-in-out infinite;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "framer-motion": "https://aistudiocdn.com/framer-motion@^12.23.24",
+    "uuid": "https://aistudiocdn.com/uuid@^13.0.0",
+    "@heroicons/react/": "https://aistudiocdn.com/@heroicons/react@^2.2.0/"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
