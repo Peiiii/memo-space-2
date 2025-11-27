@@ -171,13 +171,17 @@ export const MemoryOrb: React.FC<MemoryOrbProps> = ({
               Visual size changes are handled purely by the parent motion.div scale.
               
               This container acts as the "Planet" that can be manually rotated.
+              
+              Changes: Removed bg-slate-900 to eliminate black halo artifacts.
+              Reduced shadow opacity to be cleaner.
+              Thinned the border.
            */}
            <MotionDiv 
-             className={`relative overflow-hidden rounded-full border-2 border-white/20 shadow-xl transition-colors duration-500 bg-slate-900 cursor-grab active:cursor-grabbing ${isHovered ? 'filter-none' : 'opacity-90'}`}
+             className={`relative overflow-hidden rounded-full border border-white/10 shadow-lg transition-colors duration-500 bg-transparent cursor-grab active:cursor-grabbing ${isHovered ? 'filter-none' : 'opacity-90'}`}
              style={{
                width: '140px',
                height: '140px',
-               boxShadow: isHovered ? '0 0 50px rgba(100, 200, 255, 0.4)' : '0 0 15px rgba(0,0,0,0.6)',
+               boxShadow: isHovered ? '0 0 50px rgba(100, 200, 255, 0.4)' : '0 0 20px rgba(0,0,0,0.25)',
                rotateX: smoothOrbX,
                rotateY: smoothOrbY,
              }}
@@ -201,7 +205,7 @@ export const MemoryOrb: React.FC<MemoryOrbProps> = ({
               
               {/* Loading / Analyzing Overlay */}
               {memory.isAnalyzing && (
-                <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-20">
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-20">
                   <div className="w-8 h-8 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
                 </div>
               )}
