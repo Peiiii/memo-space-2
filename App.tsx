@@ -1,12 +1,13 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { AmbientBackground } from './components/AmbientBackground';
 import { MemoryOrb } from './components/MemoryOrb';
 import { MemoryModal } from './components/MemoryModal';
+import { GalleryView } from './components/GalleryView';
 import { Memory } from './types';
 import { interpretMemory } from './services/geminiService';
-import { PlusIcon, ArrowsUpDownIcon } from '@heroicons/react/24/outline';
-import { motion, useSpring, useMotionValue } from 'framer-motion';
+import { PlusIcon, ArrowsUpDownIcon, ListBulletIcon, GlobeAmericasIcon } from '@heroicons/react/24/outline';
+import { motion, useSpring, useMotionValue, AnimatePresence } from 'framer-motion';
 
 // Cast motion.div to any to avoid type errors with transformTemplate
 const MotionDiv = motion.div as any;
@@ -158,9 +159,11 @@ const RAW_MEMORY_DATA = [
 // Generate Initial Memories with Fibonacci Distribution
 const DEFAULT_MEMORIES: Memory[] = RAW_MEMORY_DATA.map((data, index) => {
   const pos = getFibonacciPos(index, RAW_MEMORY_DATA.length);
+  // Add some random time variance for the gallery sort
+  const simulatedTime = Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000;
   return {
     ...data,
-    timestamp: Date.now(),
+    timestamp: simulatedTime,
     theta: pos.theta,
     phi: pos.phi,
     driftSpeed: 0.8 + Math.random() * 0.4,
@@ -168,11 +171,17 @@ const DEFAULT_MEMORIES: Memory[] = RAW_MEMORY_DATA.map((data, index) => {
   };
 });
 
+type ViewMode = 'orb' | 'gallery';
+
 const App: React.FC = () => {
   const [memories, setMemories] = useState<Memory[]>(DEFAULT_MEMORIES);
   const [selectedMemoryId, setSelectedMemoryId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // View State
+  const [viewMode, setViewMode] = useState<ViewMode>('orb');
   const [isGravityMode, setIsGravityMode] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
   
   // 3D Sphere Interaction State
   const containerRef = useRef<HTMLDivElement>(null);
@@ -186,6 +195,11 @@ const App: React.FC = () => {
   const springConfig = { damping: 20, stiffness: 100, mass: 1 };
   const smoothRotateX = useSpring(rotationX, springConfig);
   const smoothRotateY = useSpring(rotationY, springConfig);
+
+  // Memoize sorted memories for Gallery View
+  const sortedMemories = useMemo(() => {
+    return [...memories].sort((a, b) => a.timestamp - b.timestamp);
+  }, [memories]);
 
   // Responsive Radius
   useEffect(() => {
@@ -246,7 +260,7 @@ const App: React.FC = () => {
         id,
         url: objectUrl,
         description: "正在唤醒记忆...",
-        timestamp: Date.now(),
+        timestamp: Date.now(), // Newest
         theta: theta,
         phi: phi,
         scale: 0.9 + Math.random() * 0.3,
@@ -266,6 +280,12 @@ const App: React.FC = () => {
     }
 
     setMemories(prev => [...prev, ...newMemories]);
+    
+    // If we add new memories in gallery mode, jump to the end
+    if (viewMode === 'gallery') {
+       setTimeout(() => setGalleryIndex(memories.length + newMemories.length - 1), 100);
+    }
+    
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -274,6 +294,8 @@ const App: React.FC = () => {
   const lastMousePos = useRef({ x: 0, y: 0 });
 
   const handlePointerDown = (e: React.PointerEvent) => {
+    if (viewMode === 'gallery') return; // Disable sphere rotation dragging in gallery mode
+
     // Only trigger drag if we aren't clicking a button or interactable element
     if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input')) {
         return;
@@ -285,7 +307,7 @@ const App: React.FC = () => {
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDragging.current) return;
+    if (!isDragging.current || viewMode === 'gallery') return;
     
     // Calculate delta
     const deltaX = e.clientX - lastMousePos.current.x;
@@ -305,13 +327,14 @@ const App: React.FC = () => {
   const handlePointerUp = () => {
     isDragging.current = false;
     if (containerRef.current) containerRef.current.style.cursor = 'grab';
-    
-    // Note: Global gravity snapping is intentionally removed.
-    // The nebula's rotation remains where the user left it.
   };
 
   const toggleGravityMode = () => {
     setIsGravityMode(prev => !prev);
+  };
+  
+  const toggleViewMode = () => {
+    setViewMode(prev => prev === 'orb' ? 'gallery' : 'orb');
   };
 
   const handleMemoryUpdate = (id: string, newDescription: string) => {
@@ -328,54 +351,75 @@ const App: React.FC = () => {
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
       ref={containerRef}
-      style={{ cursor: 'grab' }}
+      style={{ cursor: viewMode === 'orb' ? 'grab' : 'default' }}
     >
       <AmbientBackground />
 
-      {/* 3D Scene Container */}
-      <div 
-        className="absolute inset-0 flex items-center justify-center pointer-events-none"
-        style={{ perspective: '1200px' }} 
-      >
-        {/* The Rotatable World */}
-        <MotionDiv 
-          className="relative preserve-3d pointer-events-auto"
-          style={{ 
-            rotateX: smoothRotateX, 
-            rotateY: smoothRotateY,
-            transformStyle: 'preserve-3d', 
-            width: 0, 
-            height: 0 
-          }}
-          // Enforce a specific rotation order: Rotate Y first, then Rotate X.
-          // This allows children to perfectly inverse this order (Un-Rotate X, then Un-Rotate Y).
-          transformTemplate={({ rotateX, rotateY }: { rotateX: any, rotateY: any }) => {
-            return `rotateY(${rotateY}) rotateX(${rotateX})`;
-          }}
-        >
-          {memories.map((memory) => (
-            <MemoryOrb 
-              key={memory.id} 
-              memory={memory} 
-              radius={sphereRadius}
-              worldRotationX={smoothRotateX}
-              worldRotationY={smoothRotateY}
-              isGravityMode={isGravityMode}
-              onFocus={() => {}}
-              onDoubleClick={(m) => setSelectedMemoryId(m.id)}
-            />
-          ))}
-        </MotionDiv>
-      </div>
+      {/* Main Content Area */}
+      <AnimatePresence mode='wait'>
+        {viewMode === 'orb' ? (
+           <motion.div 
+             key="orb-view"
+             initial={{ opacity: 0 }}
+             animate={{ opacity: 1 }}
+             exit={{ opacity: 0 }}
+             transition={{ duration: 0.5 }}
+             className="absolute inset-0 flex items-center justify-center pointer-events-none"
+             style={{ perspective: '1200px' }} 
+           >
+             <MotionDiv 
+               className="relative preserve-3d pointer-events-auto"
+               style={{ 
+                 rotateX: smoothRotateX, 
+                 rotateY: smoothRotateY,
+                 transformStyle: 'preserve-3d', 
+                 width: 0, 
+                 height: 0 
+               }}
+               transformTemplate={({ rotateX, rotateY }: { rotateX: any, rotateY: any }) => {
+                 return `rotateY(${rotateY}) rotateX(${rotateX})`;
+               }}
+             >
+               {memories.map((memory) => (
+                 <MemoryOrb 
+                   key={memory.id} 
+                   memory={memory} 
+                   radius={sphereRadius}
+                   worldRotationX={smoothRotateX}
+                   worldRotationY={smoothRotateY}
+                   isGravityMode={isGravityMode}
+                   onFocus={() => {}}
+                   onDoubleClick={(m) => setSelectedMemoryId(m.id)}
+                 />
+               ))}
+             </MotionDiv>
+           </motion.div>
+        ) : (
+           <motion.div
+             key="gallery-view"
+             initial={{ opacity: 0, y: 50 }}
+             animate={{ opacity: 1, y: 0 }}
+             exit={{ opacity: 0, y: 50 }}
+             transition={{ duration: 0.5 }}
+             className="absolute inset-0"
+           >
+             <GalleryView 
+                memories={sortedMemories}
+                activeIndex={galleryIndex}
+                setActiveIndex={setGalleryIndex}
+                onMemoryClick={(m) => setSelectedMemoryId(m.id)}
+             />
+           </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Empty State Instructions */}
       {memories.length === 0 && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-0">
           <h1 className="text-4xl md:text-6xl font-serif text-white/80 tracking-widest drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] mb-4 animate-pulse">
             记忆空间
           </h1>
           <p className="text-white/40 font-light tracking-wide text-lg max-w-md text-center">
-            拖拽以旋转空间，或拨动单个记忆星球<br/>
             上传你的照片，让它们在此刻凝结成诗
           </p>
         </div>
@@ -383,45 +427,72 @@ const App: React.FC = () => {
 
       {/* Control Bar */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 pointer-events-auto">
-        <div className="flex items-center gap-4 bg-slate-900/80 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)]">
+        <div className="flex items-center gap-2 sm:gap-4 bg-slate-900/80 backdrop-blur-md px-4 sm:px-6 py-3 rounded-2xl border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)]">
           
           {/* Upload Button */}
           <button 
-            className="flex flex-col items-center group"
+            className="flex flex-col items-center group w-12 sm:w-14"
             onClick={() => fileInputRef.current?.click()}
           >
-            <div className="bg-white/10 p-3 rounded-full group-hover:bg-white/20 transition-colors border border-white/5">
-              <PlusIcon className="w-6 h-6 text-white" />
+            <div className="bg-white/10 p-2 sm:p-3 rounded-full group-hover:bg-white/20 transition-colors border border-white/5">
+              <PlusIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
             <span className="text-[10px] text-white/40 mt-1">上传</span>
           </button>
           
           <div className="w-px h-8 bg-white/10"></div>
 
-          {/* Gravity Toggle */}
+          {/* View Toggle */}
           <button 
-            onClick={toggleGravityMode}
-            className="flex flex-col items-center group"
+            onClick={toggleViewMode}
+            className="flex flex-col items-center group w-12 sm:w-14"
           >
-             <div className={`p-3 rounded-full transition-all duration-300 border ${isGravityMode ? 'bg-indigo-500/30 border-indigo-400/50 text-indigo-200 shadow-[0_0_15px_rgba(99,102,241,0.3)]' : 'bg-white/10 border-white/5 text-white/70 group-hover:bg-white/20'}`}>
-                <ArrowsUpDownIcon className="w-6 h-6" />
+             <div className="bg-white/10 p-2 sm:p-3 rounded-full group-hover:bg-white/20 transition-colors border border-white/5 relative">
+               <AnimatePresence mode="wait">
+                 {viewMode === 'orb' ? (
+                   <motion.div key="list" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }}>
+                      <ListBulletIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                   </motion.div>
+                 ) : (
+                   <motion.div key="globe" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }}>
+                      <GlobeAmericasIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                   </motion.div>
+                 )}
+               </AnimatePresence>
              </div>
-             <span className={`text-[10px] mt-1 transition-colors ${isGravityMode ? 'text-indigo-300' : 'text-white/40'}`}>
-               {isGravityMode ? '重力' : '悬浮'}
+             <span className="text-[10px] text-white/40 mt-1 transition-colors">
+               {viewMode === 'orb' ? '画廊' : '星云'}
              </span>
           </button>
 
-          <div className="w-px h-8 bg-white/10"></div>
+          {/* Gravity Toggle (Only in Orb Mode) */}
+          <div className={`overflow-hidden transition-all duration-300 flex items-center ${viewMode === 'orb' ? 'w-auto opacity-100' : 'w-0 opacity-0'}`}>
+             <div className="w-px h-8 bg-white/10 mx-2 sm:mx-4"></div>
+             <button 
+                onClick={toggleGravityMode}
+                className="flex flex-col items-center group w-12 sm:w-14"
+                disabled={viewMode !== 'orb'}
+              >
+                <div className={`p-2 sm:p-3 rounded-full transition-all duration-300 border ${isGravityMode ? 'bg-indigo-500/30 border-indigo-400/50 text-indigo-200 shadow-[0_0_15px_rgba(99,102,241,0.3)]' : 'bg-white/10 border-white/5 text-white/70 group-hover:bg-white/20'}`}>
+                    <ArrowsUpDownIcon className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
+                <span className={`text-[10px] mt-1 transition-colors ${isGravityMode ? 'text-indigo-300' : 'text-white/40'}`}>
+                  {isGravityMode ? '重力' : '悬浮'}
+                </span>
+             </button>
+          </div>
 
-          {/* Status Text */}
-          <div className="flex flex-col items-start min-w-[80px]">
-             <span className="text-xs text-white/80 font-medium flex items-center gap-1">
-                Memory Space
-             </span>
-             <span className="text-[10px] text-white/40">{memories.length} 个记忆片段</span>
+          {/* Status Text (Hide on small screens if cluttered) */}
+          <div className="hidden sm:flex items-center">
+             <div className="w-px h-8 bg-white/10 mx-4"></div>
+             <div className="flex flex-col items-start min-w-[80px]">
+                <span className="text-xs text-white/80 font-medium flex items-center gap-1">
+                    Memory Space
+                </span>
+                <span className="text-[10px] text-white/40">{memories.length} 个记忆片段</span>
+             </div>
           </div>
           
-          {/* Hidden Input */}
           <input 
             type="file" 
             ref={fileInputRef}
@@ -434,14 +505,12 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* Detail Modal */}
       <MemoryModal 
         memory={selectedMemory} 
         onClose={() => setSelectedMemoryId(null)} 
         onUpdateMemory={handleMemoryUpdate}
       />
 
-      {/* Decorative Overlay Vignette */}
       <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.6)_100%)] z-40"></div>
     </div>
   );
