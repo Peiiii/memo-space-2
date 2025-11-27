@@ -13,13 +13,23 @@ interface MemoryModalProps {
 export const MemoryModal: React.FC<MemoryModalProps> = ({ memory, onClose, onUpdateMemory }) => {
   const [inputText, setInputText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isShyReady, setIsShyReady] = useState(false); // Controls when the "shy" behavior activates
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Focus input on open
+  // Focus input on open & Manage "Shy Fish" Timer
   useEffect(() => {
     if (memory) {
       setTimeout(() => inputRef.current?.focus(), 300);
       setInputText('');
+
+      // The fish is brave for the first 4 seconds (always visible), 
+      // then becomes shy (hides on hover).
+      setIsShyReady(false);
+      const timer = setTimeout(() => {
+        setIsShyReady(true);
+      }, 4000);
+
+      return () => clearTimeout(timer);
     }
   }, [memory]);
 
@@ -113,21 +123,28 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ memory, onClose, onUpd
              {/* 3. Subtle Reflection Slash */}
              <div className="absolute -inset-[100%] top-[-50%] left-[-50%] w-[200%] h-[200%] bg-gradient-to-br from-transparent via-white/5 to-transparent rotate-45 pointer-events-none" />
 
-             {/* 4. NEW: Moving Border Beam (Swimming Fish Effect) */}
-             <div 
-               className="absolute inset-[-1.5px] rounded-[24px] pointer-events-none z-10 animate-border-beam"
-               style={{
-                 // Gradient designed to look like a comet/fish: 
-                 // It starts transparent, fades into a soft blue tail, then a white bright head at 100%.
-                 // Since conic gradients fill clockwise, 100% is the leading edge of the animation.
-                 background: 'conic-gradient(from var(--beam-angle) at 50% 50%, transparent 0%, transparent 60%, rgba(199, 210, 254, 0.05) 75%, rgba(199, 210, 254, 0.4) 90%, #ffffff 100%)',
-                 mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-                 WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-                 maskComposite: 'exclude',
-                 WebkitMaskComposite: 'xor',
-                 padding: '1.5px', // Beam width
-               }}
-             />
+             {/* 4. NEW: Moving Border Beam (Shy Fish Effect) */}
+             {/* 
+                Logic: 
+                - Initially opacity-100 (visible).
+                - When isShyReady is TRUE, 'group-hover:opacity-0' kicks in.
+                - This ensures the fish is seen swimming when first opened, but hides when user interacts later.
+             */}
+             <div className={`absolute inset-[-1.5px] rounded-[24px] pointer-events-none z-10 transition-opacity duration-1000 ease-in-out opacity-100 ${isShyReady ? 'group-hover:opacity-0' : ''}`}>
+               <div 
+                 className="absolute inset-0 rounded-[24px] animate-border-beam"
+                 style={{
+                   // Gradient designed to look like a comet/fish: 
+                   // It starts transparent, fades into a soft blue tail, then a white bright head at 100%.
+                   background: 'conic-gradient(from var(--beam-angle) at 50% 50%, transparent 0%, transparent 50%, rgba(199, 210, 254, 0.1) 70%, rgba(199, 210, 254, 0.5) 90%, #ffffff 100%)',
+                   mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                   WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                   maskComposite: 'exclude',
+                   WebkitMaskComposite: 'xor',
+                   padding: '1.5px', // Beam width
+                 }}
+               />
+             </div>
 
              {/* Close Button */}
              <button 
