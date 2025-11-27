@@ -100,10 +100,8 @@ export const MemoryOrb: React.FC<MemoryOrbProps> = ({
   const duration = useMemo(() => 10 + Math.random() * 10, []);
 
   // Simplified Scaling Logic
-  // Base visual size is fixed (140px)
-  // We strictly use transform scale for the hover effect to avoid layout thrashing
   const BASE_SCALE = memory.scale;
-  const HOVER_SCALE_MULTIPLIER = 2.2; // Multiplier for the expansion effect
+  const HOVER_SCALE_MULTIPLIER = 2.2; 
   
   const targetScale = isHovered ? BASE_SCALE * HOVER_SCALE_MULTIPLIER : BASE_SCALE;
 
@@ -117,15 +115,7 @@ export const MemoryOrb: React.FC<MemoryOrbProps> = ({
         pointerEvents: 'auto'
       }}
     >
-      {/* 
-         The Counter-Rotation Wrapper 
-         This div undoes the world rotation so the image stays flat to the screen (billboarding).
-         To keep the image perfectly upright (gravity effect) regardless of sphere rotation,
-         we must apply the inverse rotations in the reverse order of the parent.
-         
-         Parent (App.tsx) order: RotateY(y) * RotateX(x)
-         Inverse Child order: RotateX(-x) * RotateY(-y)
-      */}
+      {/* Counter-Rotation Wrapper for Billboarding */}
       <MotionDiv
         style={{
           rotateX: inverseRotateX,
@@ -133,8 +123,6 @@ export const MemoryOrb: React.FC<MemoryOrbProps> = ({
           transformStyle: 'preserve-3d'
         }}
         transformTemplate={({ rotateX, rotateY }: { rotateX: string, rotateY: string }) => {
-          // Framer Motion passes the value of rotateX/Y from style (which are -worldX, -worldY)
-          // We compose them in the specific order to cancel the parent's Euler rotation.
           return `rotateX(${rotateX}) rotateY(${rotateY})`;
         }}
         className="relative"
@@ -145,7 +133,6 @@ export const MemoryOrb: React.FC<MemoryOrbProps> = ({
           animate={{ 
             opacity: 1, 
             scale: targetScale,
-            // Stabilize position on hover to prevent cursor slip (stops the organic drift)
             x: isHovered ? 0 : [0, driftX, -driftX, 0],
             y: isHovered ? 0 : [0, driftY, -driftY, 0],
             rotate: isHovered ? 0 : [memory.rotation - 2, memory.rotation + 2, memory.rotation - 2],
@@ -162,26 +149,19 @@ export const MemoryOrb: React.FC<MemoryOrbProps> = ({
             onFocus(memory);
           }}
           onMouseLeave={() => {
-            // If dragging, don't collapse the orb when mouse slips out
             if (!isDraggingRef.current) setIsHovered(false);
           }}
         >
            {/* 
-              Fixed width/height container to prevent layout thrashing.
-              Visual size changes are handled purely by the parent motion.div scale.
-              
-              This container acts as the "Planet" that can be manually rotated.
-              
-              Changes: Removed bg-slate-900 to eliminate black halo artifacts.
-              Reduced shadow opacity to be cleaner.
-              Thinned the border.
+              Glass Orb Container 
+              We separate the image from the 'glass skin' overlay to ensure the glass effects (reflection, rim light)
+              sit visually ON TOP of the image, creating a true 3D marble look.
            */}
            <MotionDiv 
-             className={`relative overflow-hidden rounded-full border border-white/10 shadow-lg transition-colors duration-500 bg-transparent cursor-grab active:cursor-grabbing ${isHovered ? 'filter-none' : 'opacity-90'}`}
+             className={`relative rounded-full cursor-grab active:cursor-grabbing ${isHovered ? 'filter-none' : 'opacity-90'}`}
              style={{
                width: '140px',
                height: '140px',
-               boxShadow: isHovered ? '0 0 50px rgba(100, 200, 255, 0.4)' : '0 0 20px rgba(0,0,0,0.25)',
                rotateX: smoothOrbX,
                rotateY: smoothOrbY,
              }}
@@ -193,32 +173,54 @@ export const MemoryOrb: React.FC<MemoryOrbProps> = ({
                onDoubleClick(memory);
              }}
            >
-             {/* Glow Effect */}
-             <div className={`absolute inset-0 bg-blue-500 rounded-full mix-blend-screen blur-xl transition-opacity duration-700 ${isHovered ? 'opacity-60' : 'opacity-10'}`}></div>
+              {/* 1. The Image Layer (Bottom) */}
+              <div className="absolute inset-0 rounded-full overflow-hidden">
+                <img 
+                  src={memory.url} 
+                  alt="memory" 
+                  className="w-full h-full object-cover scale-[1.05]" /* Slight scale to prevent pixel bleeding at edges */
+                  draggable={false}
+                />
+              </div>
 
-              <img 
-                src={memory.url} 
-                alt="memory" 
-                className="relative w-full h-full object-cover z-10 pointer-events-none"
-                draggable={false}
-              />
+              {/* 2. Glass Skin Overlay (Top) - Handles Shadows, Reflections, and Rim Light */}
+              <div 
+                className="absolute inset-0 rounded-full z-20 pointer-events-none transition-all duration-500"
+                style={{
+                   // Glass Physics:
+                   // 1. Inset Shadow (White): Simulates the thickness of the glass at the edges (Fresnel effect).
+                   // 2. Drop Shadow (Colored/Black): Simulates ambient occlusion and glow.
+                   // 3. Border: Very subtle 1px rim.
+                   boxShadow: isHovered 
+                     ? 'inset 0 0 20px rgba(255, 255, 255, 0.5), inset 0 0 5px rgba(255, 255, 255, 0.5), 0 0 50px rgba(100, 200, 255, 0.5)' 
+                     : 'inset 0 0 12px rgba(255, 255, 255, 0.3), inset 0 0 2px rgba(255, 255, 255, 0.2), 0 10px 20px rgba(0,0,0,0.25)',
+                   border: '1px solid rgba(255, 255, 255, 0.15)'
+                }}
+              >
+                 {/* Specular Highlight (Top Reflection) */}
+                 {/* A soft white gradient at the top simulating a light source reflection on a curved surface */}
+                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-2/5 bg-gradient-to-b from-white/50 to-transparent rounded-t-full opacity-70 blur-[3px]"></div>
+                 
+                 {/* Bottom Secondary Refraction (Caustic-like) */}
+                 <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-1/2 h-1/4 bg-gradient-to-t from-white/30 to-transparent rounded-b-full opacity-40 blur-[5px]"></div>
+              </div>
               
               {/* Loading / Analyzing Overlay */}
               {memory.isAnalyzing && (
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-20">
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-30 rounded-full">
                   <div className="w-8 h-8 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
                 </div>
               )}
             </MotionDiv>
 
-            {/* Text Reveal - Counter-scale the text so it doesn't look gigantic relative to screen */}
+            {/* Text Reveal */}
             {isHovered && !memory.isAnalyzing && (
               <MotionDiv 
                 initial={{ opacity: 0, y: 10, scale: 0.5 }}
                 animate={{ opacity: 1, y: 0, scale: 1.0 / HOVER_SCALE_MULTIPLIER }}
                 className="absolute top-full left-1/2 -translate-x-1/2 mt-4 w-72 text-center pointer-events-none z-[20000]"
               >
-                <div className="bg-slate-900/90 backdrop-blur-xl p-4 rounded-xl border border-white/20 shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
+                <div className="bg-slate-900/80 backdrop-blur-xl p-4 rounded-xl border border-white/20 shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
                   <p className="text-white text-base font-serif italic leading-relaxed tracking-wider text-shadow-sm">
                     "{memory.description}"
                   </p>
