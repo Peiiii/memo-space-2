@@ -101,7 +101,8 @@ export const MemoryOrb: React.FC<MemoryOrbProps> = ({
 
   // Simplified Scaling Logic
   const BASE_SCALE = memory.scale;
-  const HOVER_SCALE_MULTIPLIER = 2.2; 
+  // Reduced from 2.2 to 1.35 to prevent excessive enlargement on hover
+  const HOVER_SCALE_MULTIPLIER = 1.35; 
   
   const targetScale = isHovered ? BASE_SCALE * HOVER_SCALE_MULTIPLIER : BASE_SCALE;
 
