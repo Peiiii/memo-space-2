@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Memory } from '../types';
-import { motion, useMotionValue, useTransform, useSpring, MotionValue } from 'framer-motion';
+import { motion, useTransform, MotionValue } from 'framer-motion';
 
 // Cast motion.div to any to avoid type errors with 'initial' prop in some environments
 const MotionDiv = motion.div as any;
@@ -25,64 +25,6 @@ export const MemoryOrb: React.FC<MemoryOrbProps> = ({
   onDoubleClick
 }) => {
   const [isHovered, setIsHovered] = useState(false);
-  
-  // Local rotation state for "Planet Spin"
-  const orbRotationX = useMotionValue(0);
-  const orbRotationY = useMotionValue(0);
-  const springConfig = { damping: 20, stiffness: 120, mass: 0.5 };
-  const smoothOrbX = useSpring(orbRotationX, springConfig);
-  const smoothOrbY = useSpring(orbRotationY, springConfig);
-
-  const isDraggingRef = useRef(false);
-  const lastPos = useRef({ x: 0, y: 0 });
-
-  // Snap to nearest 360 degrees (vertical/upright equilibrium)
-  const snapToBalance = (val: number) => {
-    return Math.round(val / 360) * 360;
-  };
-
-  // Reset/Snap rotation when Gravity Mode is enabled
-  useEffect(() => {
-    if (isGravityMode) {
-      orbRotationX.set(snapToBalance(orbRotationX.get()));
-      orbRotationY.set(snapToBalance(orbRotationY.get()));
-    }
-  }, [isGravityMode, orbRotationX, orbRotationY]);
-
-  const handlePointerDown = (e: React.PointerEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    isDraggingRef.current = true;
-    lastPos.current = { x: e.clientX, y: e.clientY };
-    (e.target as Element).setPointerCapture(e.pointerId);
-  };
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDraggingRef.current) return;
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const deltaX = e.clientX - lastPos.current.x;
-    const deltaY = e.clientY - lastPos.current.y;
-    lastPos.current = { x: e.clientX, y: e.clientY };
-
-    // Standard rotation mapping (Direct Manipulation)
-    orbRotationY.set(orbRotationY.get() + deltaX * 0.6);
-    orbRotationX.set(orbRotationX.get() - deltaY * 0.6);
-  };
-
-  const handlePointerUp = (e: React.PointerEvent) => {
-    if (!isDraggingRef.current) return;
-    isDraggingRef.current = false;
-    e.preventDefault();
-    e.stopPropagation();
-    (e.target as Element).releasePointerCapture(e.pointerId);
-
-    if (isGravityMode) {
-      orbRotationX.set(snapToBalance(orbRotationX.get()));
-      orbRotationY.set(snapToBalance(orbRotationY.get()));
-    }
-  };
 
   // 1. Calculate Static 3D Cartesian position from Spherical coordinates
   const x = radius * Math.sin(memory.phi) * Math.cos(memory.theta);
@@ -90,7 +32,9 @@ export const MemoryOrb: React.FC<MemoryOrbProps> = ({
   const z = radius * Math.sin(memory.phi) * Math.sin(memory.theta);
 
   // 2. Real-time Depth Calculation
-  // We compute the 'Projected Z' to determine if the orb is in front or back after world rotation.
+  // We compute the 'Projected Z' to determine if the orb is in front or back.
+  // Must match the Nested Div structure in OrbView: Outer(Pitch) -> Inner(Yaw).
+  // Math Order: PitchMatrix * (YawMatrix * Point).
   const projectedZ = useTransform(
     [worldRotationX, worldRotationY],
     ([rotX, rotY]) => {
@@ -98,19 +42,18 @@ export const MemoryOrb: React.FC<MemoryOrbProps> = ({
       const rX = (rotX as number) * (Math.PI / 180);
       const rY = (rotY as number) * (Math.PI / 180);
 
-      // Apply World Rotation Matrix logic (matching OrbView's rotation order: Y then X, or X then Y)
-      // Note: OrbView applies CSS transform `rotateY(y) rotateX(x)`. 
-      // This means we rotate around X first (local), then Y (global).
-      
-      // Step A: Rotate around X-axis
-      // y' = y*cos(rX) - z*sin(rX)
-      // z' = y*sin(rX) + z*cos(rX)
-      const z_after_x = y * Math.sin(rX) + z * Math.cos(rX);
-      const y_after_x = y * Math.cos(rX) - z * Math.sin(rX); // Not strictly needed for Z calc but good for completeness
+      // Step 1: Apply Inner Rotation (Yaw/Y-axis) first
+      // x' = x*cos(rY) + z*sin(rY)
+      // z' = -x*sin(rY) + z*cos(rY)
+      // y' = y
+      const x_yaw = x * Math.cos(rY) + z * Math.sin(rY);
+      const z_yaw = -x * Math.sin(rY) + z * Math.cos(rY);
+      const y_yaw = y;
 
-      // Step B: Rotate around Y-axis
-      // z_final = z'*cos(rY) - x*sin(rY)
-      const z_final = z_after_x * Math.cos(rY) - x * Math.sin(rY);
+      // Step 2: Apply Outer Rotation (Pitch/X-axis) second
+      // y'' = y'*cos(rX) - z'*sin(rX)
+      // z'' = y'*sin(rX) + z'*cos(rX)
+      const z_final = y_yaw * Math.sin(rX) + z_yaw * Math.cos(rX);
 
       return z_final;
     }
@@ -121,9 +64,6 @@ export const MemoryOrb: React.FC<MemoryOrbProps> = ({
     return ((value - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
   };
 
-  // Dynamic Styles based on Projected Z
-  // Z ranges roughly from -radius (Back) to +radius (Front)
-  
   const dynamicOpacity = useTransform(projectedZ, (z) => {
      // Range clamped slightly to avoid flickering at exact poles
      const safeZ = Math.max(-radius, Math.min(radius, z)); 
@@ -163,13 +103,10 @@ export const MemoryOrb: React.FC<MemoryOrbProps> = ({
   const targetScale = isHovered ? BASE_SCALE * HOVER_SCALE_MULTIPLIER : BASE_SCALE;
 
   return (
-    // w-0 h-0 is crucial here. It forces the center of this container to be the exact point of the translate3d coordinate.
-    // The flexbox then centers the content around this 0x0 point.
     <MotionDiv
       className="absolute top-1/2 left-1/2 w-0 h-0 flex items-center justify-center"
       style={{
         transform: `translate3d(${x}px, ${y}px, ${z}px)`,
-        // Use dynamic Z-Index for proper layering during rotation
         zIndex: isHovered ? 10000 : dynamicZIndex, 
         transformStyle: 'preserve-3d',
         pointerEvents: dynamicPointerEvents
@@ -178,21 +115,27 @@ export const MemoryOrb: React.FC<MemoryOrbProps> = ({
       {/* Counter-Rotation Wrapper for Billboarding */}
       <MotionDiv
         style={{
-          rotateX: inverseRotateX,
-          rotateY: inverseRotateY,
+          // Inverse of Pitch(Yaw) is InvYaw(InvPitch)
+          // Since child transform is applied inside, the hierarchy is Outer -> Inner -> Child -> ChildBillboards
+          // Total: RotX * RotY * BillY * BillX.
+          // We want identity: RotX * RotY * BillY * BillX = I.
+          // So BillY * BillX = RotY^-1 * RotX^-1.
+          // So rotateY(-Y) rotateX(-X).
+          rotateY: inverseRotateY, 
+          rotateX: inverseRotateX, 
           transformStyle: 'preserve-3d'
         }}
         transformTemplate={({ rotateX, rotateY }: { rotateX: string, rotateY: string }) => {
-          return `rotateX(${rotateX}) rotateY(${rotateY})`;
+          return `rotateY(${rotateY}) rotateX(${rotateX})`;
         }}
         className="relative"
       >
         <MotionDiv
           className="relative flex items-center justify-center group transition-colors duration-500"
-          initial={{ opacity: 0, scale: 0 }}
+          initial={{ scale: 0 }} 
           style={{
-             opacity: isHovered ? 1 : dynamicOpacity, // Apply atmospheric fade
-             filter: isHovered ? 'none' : dynamicFilter, // Apply blur/brightness
+             opacity: isHovered ? 1 : dynamicOpacity, 
+             filter: isHovered ? 'none' : dynamicFilter, 
           }}
           animate={{ 
             scale: targetScale,
@@ -211,25 +154,20 @@ export const MemoryOrb: React.FC<MemoryOrbProps> = ({
             onFocus(memory);
           }}
           onMouseLeave={() => {
-            if (!isDraggingRef.current) setIsHovered(false);
+            setIsHovered(false);
           }}
         >
            {/* Glass Orb Container */}
            <MotionDiv 
-             className={`relative rounded-full cursor-grab active:cursor-grabbing`}
+             className={`relative rounded-full`}
              style={{
                width: '140px',
                height: '140px',
-               rotateX: smoothOrbX,
-               rotateY: smoothOrbY,
                boxShadow: isHovered 
                  ? 'inset 0 0 20px rgba(255, 255, 255, 0.5), inset 0 0 5px rgba(255, 255, 255, 0.5), 0 0 50px rgba(100, 200, 255, 0.5)' 
                  : 'inset 0 0 12px rgba(255, 255, 255, 0.3), inset 0 0 2px rgba(255, 255, 255, 0.2), 0 10px 20px rgba(0,0,0,0.25)',
                border: '1px solid rgba(255, 255, 255, 0.15)'
              }}
-             onPointerDown={handlePointerDown}
-             onPointerMove={handlePointerMove}
-             onPointerUp={handlePointerUp}
              onDoubleClick={(e: React.MouseEvent) => {
                e.stopPropagation();
                onDoubleClick(memory);
