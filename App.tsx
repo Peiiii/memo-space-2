@@ -57,7 +57,7 @@ const App: React.FC = () => {
     <div className="relative w-full h-screen overflow-hidden text-slate-200 bg-[#0f172a] select-none">
       <AmbientBackground />
 
-      <AnimatePresence mode='wait'>
+      <AnimatePresence>
         {viewMode === 'orb' && (
            <OrbView key="orb-view" />
         )}
@@ -68,7 +68,7 @@ const App: React.FC = () => {
              initial={{ opacity: 0, y: 50 }}
              animate={{ opacity: 1, y: 0 }}
              exit={{ opacity: 0, y: 50 }}
-             transition={{ duration: 0.5 }}
+             transition={{ duration: 0.4 }}
              className="absolute inset-0"
            >
              <GalleryView />
@@ -81,7 +81,7 @@ const App: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.8 }}
+            transition={{ duration: 0.4 }}
             className="absolute inset-0 z-30"
           >
             <WorldView />

@@ -90,54 +90,50 @@ export const WorldView: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 2, ease: "linear" }}
+            transition={{ duration: 0.5, ease: "linear" }}
             className="absolute inset-[-10%]"
             style={{ x: bgMoveX, y: bgMoveY }}
         >
             <div 
-              className="absolute inset-0 bg-cover bg-center blur-[100px] opacity-40 scale-125 saturate-150 brightness-75 animate-pulse"
+              className="absolute inset-0 bg-cover bg-center blur-[30px] opacity-40 scale-110 brightness-75 transition-all duration-700"
               style={{ 
-                  backgroundImage: `url(${activeMemory.url})`,
-                  animationDuration: '8s' 
+                  backgroundImage: `url(${activeMemory.url})`
               }}
             />
             <div 
               className="absolute inset-0"
               style={{ background: 'radial-gradient(circle at center, transparent 0%, #050505 80%)' }}
             />
-            
-            <div className="absolute inset-0 opacity-[0.07] pointer-events-none mix-blend-overlay"
-                 style={{ 
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`
-                 }}
-            />
         </MotionDiv>
       </AnimatePresence>
 
       <div className="relative z-10 w-full max-w-7xl h-full flex flex-col md:flex-row items-center justify-center p-6 md:p-20 perspective-[1500px]">
          
-         <div className="relative w-full md:w-2/3 h-[50vh] md:h-[70vh] flex items-center justify-center">
+         {/* 
+            Height Constraint Update: 
+            Increased safety margin from 160px to 240px to strictly prevent overlap with bottom control bar.
+         */}
+         <div className="relative w-full md:w-2/3 h-[50vh] md:h-[65vh] max-h-[calc(100vh-240px)] flex items-center justify-center pointer-events-none">
             <AnimatePresence mode="wait">
                 <MotionDiv
                     key={`card-${activeMemory.id}`}
-                    initial={{ opacity: 0, scale: 0.9, z: -200, rotateY: 15 }}
+                    initial={{ opacity: 0, scale: 0.95, z: -50, rotateY: 10 }}
                     animate={{ opacity: 1, scale: 1, z: 0, rotateY: 0 }}
-                    exit={{ opacity: 0, scale: 1.1, z: 100, filter: 'blur(20px)' }}
-                    transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }} 
+                    exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+                    transition={{ duration: 0.3, ease: "easeOut" }} 
                     style={{ 
                         rotateX: rotateX, 
                         rotateY: rotateY,
                         transformStyle: 'preserve-3d'
                     }}
-                    className="relative w-auto h-full max-h-full aspect-auto shadow-[0_30px_60px_-12px_rgba(0,0,0,0.5)] cursor-pointer"
+                    className="relative w-auto h-full max-h-full aspect-auto shadow-[0_30px_60px_-12px_rgba(0,0,0,0.5)] cursor-pointer pointer-events-auto"
                     onClick={() => memoryManager.selectMemory(activeMemory.id)}
                 >
                     <MotionImg 
                         src={activeMemory.url} 
-                        className="w-full h-full object-contain rounded-sm shadow-2xl relative z-10"
+                        className="w-full h-full object-contain rounded-sm shadow-2xl relative z-10 bg-black/50"
                         style={{
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            backgroundColor: 'rgba(0,0,0,0.5)'
+                            border: '1px solid rgba(255,255,255,0.1)'
                         }}
                         draggable={false}
                     />
@@ -147,14 +143,14 @@ export const WorldView: React.FC = () => {
             </AnimatePresence>
          </div>
 
-         <div className="absolute md:relative bottom-12 md:bottom-auto w-full md:w-1/3 md:h-full flex flex-col justify-end md:justify-center items-center md:items-start md:pl-16 pointer-events-none">
+         <div className="absolute md:relative bottom-36 md:bottom-auto w-full md:w-1/3 md:h-full flex flex-col justify-end md:justify-center items-center md:items-start md:pl-16 pointer-events-none">
             <AnimatePresence mode="wait">
                 <MotionDiv
                     key={`text-${activeMemory.id}`}
-                    initial={{ opacity: 0, x: 50 }}
+                    initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -30 }}
-                    transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+                    exit={{ opacity: 0, x: -10, transition: { duration: 0.2 } }}
+                    transition={{ duration: 0.3, delay: 0.05, ease: "easeOut" }}
                     style={{ x: textMoveX, y: textMoveY }} 
                     className="text-center md:text-left relative z-30"
                 >
@@ -162,7 +158,7 @@ export const WorldView: React.FC = () => {
                         <MotionP 
                             initial={{ y: '100%' }}
                             animate={{ y: 0 }}
-                            transition={{ duration: 0.8, delay: 0.3 }}
+                            transition={{ duration: 0.3, delay: 0.1 }}
                             className="text-xs font-sans uppercase tracking-[0.4em] text-white/50 mb-4"
                         >
                            Memories No. {activeIndex + 1}
@@ -187,7 +183,7 @@ export const WorldView: React.FC = () => {
 
       </div>
 
-      <div className="absolute bottom-8 left-8 z-50">
+      <div className="absolute bottom-28 left-8 z-50">
         <button 
           onClick={() => worldManager.togglePlay()}
           className="group flex items-center gap-3 text-white/40 hover:text-white transition-colors"
